@@ -1,0 +1,43 @@
+name: Crear APK A comer
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Instalar dependencias
+        run: npm install
+      - name: Compilar web
+        run: npm run build
+      - name: Crear Android
+        run: npx cap add android
+      - name: Permisos de ubicación Android
+        run: |
+          python3 - <<'PY'
+          p='android/app/src/main/AndroidManifest.xml'
+          s=open(p).read()
+          marker='<application'
+          perms='<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />\n    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />\n    <uses-permission android:name="android.permission.INTERNET" />\n    '
+          if 'ACCESS_FINE_LOCATION' not in s: s=s.replace(marker,perms+marker)
+          open(p,'w').write(s)
+          PY
+      - name: Sincronizar
+        run: npx cap sync android
+      - name: Compilar APK
+        working-directory: android
+        run: ./gradlew assembleDebug
+      - name: Guardar APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: A-comer-APK
+          path: android/app/build/outputs/apk/debug/app-debug.apk
